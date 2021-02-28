@@ -1,0 +1,201 @@
+library community.livecode.paulmcclernan.hidapi
+
+metadata version is "0.1"
+metadata author is "Paul McClernan"
+metadata title is "LC HID API"
+
+use com.livecode.foreign
+use com.livecode.canvas
+use com.livecode.string
+use com.livecode.char
+use com.livecode.array
+use com.livecode.list
+use com.livecode.widget
+use com.livecode.engine
+use com.livecode.library.widgetutils
+use com.livecode.system
+
+-- MCStringEncodings
+-- The (7-bit) ASCII encoding.
+constant kMCStringEncodingASCII is 0
+-- The standard Windows (Latin-1) encoding.
+constant	kMCStringEncodingWindows1252 is 1
+-- The standard Mac (Latin-1) encoding.
+constant	kMCStringEncodingMacRoman is 2
+-- The standard Linux (Latin-1) encoding.
+constant kMCStringEncodingISO8859_1 is 3
+-- The UTF-8 string encoding.  In LiveCode, this permits overlong sequences when decoding, but does not generate them when encoding.
+constant kMCStringEncodingUTF8 is 4
+-- The UTF-16 string encoding in little endian byte-order.
+constant	kMCStringEncodingUTF16LE is 5
+-- The UTF-16 string encoding in big endian byte-order.
+constant kMCStringEncodingUTF16BE is 6
+-- The UTF-32 string encoding in little endian byte-order.
+constant kMCStringEncodingUTF32LE is 7
+-- The UTF-32 string encoding in big endian byte-order.
+constant kMCStringEncodingUTF32BE is 8
+constant kMCStringEncodingUTF16 is 9
+constant kMCStringEncodingUTF32 is 10
+
+-- MCStringEncode(*t_copy, kMCStringEncodingUTF16, false, t_encoded_paths)
+__safe foreign handler MCStringEncode(in pString as String, in pEncoding as CUInt, in pIsExternalRep as CBool, out rUTF8String as Data) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringDecode(in pData as Data, in pEncoding as CUInt, in pIsExternalRep as CBool, out rUTF8String as String) returns CBool binds to "<builtin>"
+-- bool MCStringDecode(MCDataRef data, MCStringEncoding encoding, bool is_external_rep, MCStringRef& r_string);
+__safe foreign handler MCStringCreateWithCString(in pCString as Pointer, out rString as String) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithWString(in pWString as Pointer, out rString as ZStringUTF16) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithSysString(in pWString as Pointer, out rString as ZStringNative) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
+--foreign handler MCDataConvertStringToData(in pString as String, out rData as Data) returns CBool binds to "<builtin>"
+__safe foreign handler MCDataGetBytePtr(in pData as Data) returns optional Pointer binds to "<builtin>"
+__safe foreign handler MCMemoryAllocate(in pSize as UIntSize, out rBlockPtr as Pointer) returns CBool binds to "<builtin>"
+-- allocates a block of size pSize bytes, places the pointer into rBlockPtr and returns true - or just returns false if it fails
+-- MCMemoryReallocate(T *p_block, size_t p_new_size, T*& r_new_block)
+__safe foreign handler MCMemoryReallocate(in rBlockPtr as Pointer, in pSize as UIntSize, out rReAllocBlockPtr as Pointer) returns CBool binds to "<builtin>"
+__safe foreign handler MCMemoryDeallocate(in rBlockPtr as Pointer) returns nothing binds to "<builtin>"
+__safe foreign handler MCWidgetGetMyScriptObject(out rObject as ScriptObject) returns nothing binds to "<builtin>"
+-- MCDataGetLength(t_data);
+
+
+private type hid_device_infos is Pointer
+private type fs_SYNTH is Pointer
+private type fs_AUIDIOdrvr is Pointer
+
+-- struct hid_device_info HID_API_EXPORT * HID_API_CALL hid_enumerate(unsigned short vendor_id, unsigned short product_id);
+
+private variable mDevices as optional hid_device_infos
+private variable mInited as Boolean
+
+__safe foreign handler hid_init() returns CInt binds to "c:libhidapi>hid_init"
+__safe foreign handler hid_exit() returns CInt binds to "c:libhidapi>hid_exit"
+__safe foreign handler hid_version_str() returns Pointer binds to "c:libhidapi>hid_version_str"
+__safe foreign handler hid_enumerate(in pVendorID as LCUInt, in pProductID as LCUInt) returns Pointer binds to "c:libhidapi>hid_enumerate"
+__safe foreign handler hid_free_enumeration(in mDevices as Pointer) returns nothing binds to "c:libhidapi>hid_free_enumeration"
+
+public handler HIDAPIInit() returns optional any
+   variable tStrPtr as Pointer
+   variable tString as String
+   variable tResult as CInt
+   put hid_init() into tResult -- 0 on success and -1 on error.
+   if tResult is 0 then
+      put hid_version_str() into tStrPtr
+      if MCStringCreateWithCString(tStrPtr, tString) then
+         log ["HID API VERSION:" && tString]
+         put true into mInited
+      end if
+   end if
+end handler
+
+-- struct hid_device_info {
+--			/** Platform-specific device path */ rddrdrrddHr
+--			char *path;  --  r=Pointer
+--			/** Device Vendor ID */
+--			unsigned short vendor_id; -- d=CUShort or hh=2X-Uint8-Bytes
+--			/** Device Product ID */
+--			unsigned short product_id; -- d=CUShort or hh=2X-Uint8-Bytes
+--			/** Serial Number */
+--			wchar_t *serial_number; -- r=Pointer
+--			/** Device Release Number in binary-coded decimal, also known as Device Version Number */
+--			unsigned short release_number; -- d=CUShort
+--			/** Manufacturer String */
+--			wchar_t *manufacturer_string; -- r=Pointer
+--			/** Product string */
+--			wchar_t *product_string; -- r=Pointer
+--			/** Usage Page for this Device/Interface (Windows/Mac only). */
+--			unsigned short usage_page; -- d=CUShort
+--			/** Usage for this Device/Interface (Windows/Mac only).*/
+--			unsigned short usage; d=CUShort
+--			/** The USB interface which this logical device	represents.
+--				* Valid on both Linux implementations in all cases.
+--				* Valid on the Windows implementation only if the device contains more than one interface.
+--			   * Valid on the Mac implementation if and only if the device is a USB HID device. */
+--			int interface_number; -- H=CInt
+--			/** Pointer to the next device */
+--			struct hid_device_info *next; r=Pointer  };
+--
+public foreign type HIDDevices binds to "MCAggregateTypeInfo:rhhhhrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
+__safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+
+public handler HIDAPIEnumerate() returns optional any
+
+   variable tStrPtr as Pointer
+   variable tString as String
+   variable tZStringUTF16 as ZStringUTF16
+   variable tZStringNative as ZStringNative
+
+   variable rHIDDevices as HIDDevices
+   variable rNextHIDDevice as HIDDevices
+   variable tDevice as optional Pointer
+
+   -- variable tString as String
+   put hid_enumerate(0,0) into mDevices
+   PointerToHIDDevices(rHIDDevices,mDevices, 1024)
+   put element 1 of rHIDDevices into tStrPtr
+   if MCStringCreateWithCString(tStrPtr, tString) then
+      log ["PATH=" && tString]
+      -- return tString
+   end if
+   -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
+   log ["Vendor=", element 2 of rHIDDevices, element 3 of rHIDDevices ]
+   log ["Product=", element 4 of rHIDDevices, element 5 of rHIDDevices ]
+
+   put element 8 of rHIDDevices into tStrPtr
+      if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+      --__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
+      -- bool MCStringCreateWithSysString(const char *sys_string, MCStringRef &r_string);
+      log ["Manufacturer=" && tString]
+      -- return tString
+   end if
+   put element 9 of rHIDDevices into tStrPtr
+   if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+      log ["Product=" && tString]
+      -- return tString
+   end if
+   put nothing into tDevice
+   put element 13 of rHIDDevices into tDevice
+   repeat forever
+      if tDevice is nothing then
+         exit repeat /* iterator */
+      end if
+      log ["Next Dev Pointer=", tDevice]
+      -- return tString
+      -- log rHIDDevices
+      PointerToHIDDevices(rNextHIDDevice, tDevice, 1024)
+
+      put element 1 of rNextHIDDevice into tStrPtr
+      if MCStringCreateWithCString(tStrPtr, tString) then
+         log ["PATH=" && tString]
+         -- return tString
+      end if
+      -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
+      log ["Vendor=", element 2 of rNextHIDDevice, element 3 of rHIDDevices ]
+      log ["Product=", element 4 of rNextHIDDevice, element 5 of rHIDDevices ]
+
+      put element 8 of rNextHIDDevice into tStrPtr
+      -- if MCStringCreateWithWString(tStrPtr, tZStringUTF16) then
+         if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+         --__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
+         -- bool MCStringCreateWithSysString(const char *sys_string, MCStringRef &r_string);
+         log ["Manufacturer=" && tString]
+         -- return tString
+      end if
+      put element 9 of rNextHIDDevice into tStrPtr
+      -- if MCStringCreateWithSysString(tStrPtr, tZStringUTF16) then
+      if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+         log ["Product=" && tString]
+         -- return tString
+      end if
+      put nothing into tDevice
+      put element 13 of rNextHIDDevice into tDevice
+      log ["Next Dev Pointer=", tDevice]
+      if (tDevice is nothing) then
+         exit repeat /* iterator */
+      else
+         put nothing into tDevice
+         put element 13 of rNextHIDDevice into tDevice
+         next repeat
+      end if
+   end repeat
+   hid_free_enumeration(mDevices)
+end handler
+
+end library
