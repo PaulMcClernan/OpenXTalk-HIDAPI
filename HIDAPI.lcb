@@ -128,7 +128,7 @@ end handler
 --
 public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
 public foreign type HIDDevice binds to "MCAggregateTypeInfo:rddrdrrddH" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
-public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
+public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
 __safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 __safe foreign handler PointerToHIDDevice(out rAggregate as HIDDevice, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 __safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
@@ -139,6 +139,8 @@ variable rBufferPtr as optional Pointer
 public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative) returns optional any
    -- variable rIncomingData as Data
    variable rBytesRead as Integer
+   variable tByteCounter as Integer
+   variable tReturnString as String
    variable tResult as Boolean
    -- put nothing into rIncomingData
    -- put the byte with code 0 into rIncomingData
@@ -150,8 +152,13 @@ public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative) ret
    else
       put hid_read_timeout(mSelectedDevice,rBufferPtr,1000) into rBytesRead
       PointerBufferToData(rIncomingData,rBufferPtr,64)
-      log [rBytesRead,rBufferPtr,rIncomingData]
+      -- log [rBytesRead,rBufferPtr,rIncomingData]
+      repeat with tByteCounter from 1 up to rBytesRead
+
+         put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
+      end repeat
       hid_close(mSelectedDevice)
+      return tReturnString
    end if
    -- put nothing into rBufferPtr
    -- put MCMemoryDeallocate(rBufferPtr) into tResult
