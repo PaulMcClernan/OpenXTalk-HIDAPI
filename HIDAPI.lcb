@@ -14,6 +14,12 @@ use com.livecode.widget
 use com.livecode.engine
 use com.livecode.library.widgetutils
 use com.livecode.system
+use com.livecode.byte
+use com.livecode.date
+use com.livecode.binary
+use com.livecode.bitwise
+use com.livecode.math
+
 
 -- MCStringEncodings
 -- The (7-bit) ASCII encoding.
@@ -55,21 +61,22 @@ __safe foreign handler MCMemoryDeallocate(in rBlockPtr as Pointer) returns nothi
 __safe foreign handler MCWidgetGetMyScriptObject(out rObject as ScriptObject) returns nothing binds to "<builtin>"
 -- MCDataGetLength(t_data);
 
-
 private type hid_device_infos is Pointer
-private type fs_SYNTH is Pointer
-private type fs_AUIDIOdrvr is Pointer
-
--- struct hid_device_info HID_API_EXPORT * HID_API_CALL hid_enumerate(unsigned short vendor_id, unsigned short product_id);
+private type hid_device is Pointer
 
 private variable mDevices as optional hid_device_infos
+private variable mSelectedDevice as optional hid_device
 private variable mInited as Boolean
 
 __safe foreign handler hid_init() returns CInt binds to "c:libhidapi>hid_init"
 __safe foreign handler hid_exit() returns CInt binds to "c:libhidapi>hid_exit"
 __safe foreign handler hid_version_str() returns Pointer binds to "c:libhidapi>hid_version_str"
-__safe foreign handler hid_enumerate(in pVendorID as LCUInt, in pProductID as LCUInt) returns Pointer binds to "c:libhidapi>hid_enumerate"
+__safe foreign handler hid_enumerate(in pVendorID as CUShort, in pProductID as CUShort) returns Pointer binds to "c:libhidapi>hid_enumerate"
 __safe foreign handler hid_free_enumeration(in mDevices as Pointer) returns nothing binds to "c:libhidapi>hid_free_enumeration"
+__safe foreign handler hid_open(in pVendorID as CUShort, in pProductID as CUShort, in pSerial as optional ZStringUTF16) returns optional hid_device binds to "c:libhidapi>hid_open"
+
+__safe foreign handler hid_open_path(in pSysPath as ZStringNative) returns optional hid_device binds to "c:libhidapi>hid_open_path"
+-- hid_device * HID_API_CALL hid_open_path(const char *path);
 
 public handler HIDAPIInit() returns optional any
    variable tStrPtr as Pointer
@@ -112,7 +119,7 @@ end handler
 --			/** Pointer to the next device */
 --			struct hid_device_info *next; r=Pointer  };
 --
-public foreign type HIDDevices binds to "MCAggregateTypeInfo:rhhhhrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
+public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
 __safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 
 public handler HIDAPIEnumerate() returns optional any
@@ -121,6 +128,8 @@ public handler HIDAPIEnumerate() returns optional any
    variable tString as String
    variable tZStringUTF16 as ZStringUTF16
    variable tZStringNative as ZStringNative
+   variable tVenderID as CUShort
+   variable tProductID as CUShort
 
    variable rHIDDevices as HIDDevices
    variable rNextHIDDevice as HIDDevices
@@ -134,29 +143,35 @@ public handler HIDAPIEnumerate() returns optional any
       log ["PATH=" && tString]
       -- return tString
    end if
+   put element 2 of rHIDDevices into tVenderID
+   put getHexStringFromTwoByteNum(tVenderID) into tString
+   log ["Vendor=" & tString ]
+   put element 3 of rHIDDevices into tProductID
+   put getHexStringFromTwoByteNum(tProductID) into tString
+   log ["Product=" & tString ]
    -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
-   log ["Vendor=", element 2 of rHIDDevices, element 3 of rHIDDevices ]
-   log ["Product=", element 4 of rHIDDevices, element 5 of rHIDDevices ]
+   -- log ["Vendor=", element 2 of rHIDDevices ]
+   -- log ["Product=", element 3 of rHIDDevices ]
 
-   put element 8 of rHIDDevices into tStrPtr
+   put element 6 of rHIDDevices into tStrPtr
       if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
       --__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
       -- bool MCStringCreateWithSysString(const char *sys_string, MCStringRef &r_string);
       log ["Manufacturer=" && tString]
       -- return tString
    end if
-   put element 9 of rHIDDevices into tStrPtr
+   put element 7 of rHIDDevices into tStrPtr
    if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
       log ["Product=" && tString]
       -- return tString
    end if
    put nothing into tDevice
-   put element 13 of rHIDDevices into tDevice
+   put element 11 of rHIDDevices into tDevice
    repeat forever
       if tDevice is nothing then
          exit repeat /* iterator */
       end if
-      log ["Next Dev Pointer=", tDevice]
+      -- log ["Next Dev Pointer=", tDevice]
       -- return tString
       -- log rHIDDevices
       PointerToHIDDevices(rNextHIDDevice, tDevice, 1024)
@@ -166,36 +181,54 @@ public handler HIDAPIEnumerate() returns optional any
          log ["PATH=" && tString]
          -- return tString
       end if
-      -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
-      log ["Vendor=", element 2 of rNextHIDDevice, element 3 of rHIDDevices ]
-      log ["Product=", element 4 of rNextHIDDevice, element 5 of rHIDDevices ]
 
-      put element 8 of rNextHIDDevice into tStrPtr
+      put element 2 of rNextHIDDevice into tVenderID
+      put getHexStringFromTwoByteNum(tVenderID) into tString
+      log ["Vendor=" & tString ]
+      put element 3 of rNextHIDDevice into tProductID
+      put getHexStringFromTwoByteNum(tProductID) into tString
+      log ["Product=" & tString ]
+      -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
+      -- log ["Vendor=", element 2 of rNextHIDDevice ]
+      -- log ["Product=", element 3 of rNextHIDDevice ]
+
+      put element 6 of rNextHIDDevice into tStrPtr
       -- if MCStringCreateWithWString(tStrPtr, tZStringUTF16) then
-         if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+         if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF8,false,tString) then
          --__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
          -- bool MCStringCreateWithSysString(const char *sys_string, MCStringRef &r_string);
          log ["Manufacturer=" && tString]
          -- return tString
       end if
-      put element 9 of rNextHIDDevice into tStrPtr
+      put element 7 of rNextHIDDevice into tStrPtr
       -- if MCStringCreateWithSysString(tStrPtr, tZStringUTF16) then
-      if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF16,false,tString) then
+      if MCStringCreateWithBytes(tStrPtr,32,kMCStringEncodingUTF8,false,tString) then -- kMCStringEncodingUTF16
          log ["Product=" && tString]
          -- return tString
       end if
       put nothing into tDevice
-      put element 13 of rNextHIDDevice into tDevice
-      log ["Next Dev Pointer=", tDevice]
+      put element 11 of rNextHIDDevice into tDevice
+      -- log ["Next Dev Pointer=", tDevice]
       if (tDevice is nothing) then
          exit repeat /* iterator */
       else
-         put nothing into tDevice
-         put element 13 of rNextHIDDevice into tDevice
          next repeat
       end if
    end repeat
    hid_free_enumeration(mDevices)
+end handler
+
+public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns optional String
+   variable tNum as Number
+   variable tBinsStr as String
+   put pTwoByteNum converted to base 16 into tBinsStr
+   if (the number of chars in tBinsStr) < 4 then
+      put 4 - (the number of chars in tBinsStr) into tNum
+      repeat tNum times
+         put "0" before tBinsStr
+      end repeat
+   end if
+   return tBinsStr
 end handler
 
 end library
