@@ -65,7 +65,8 @@ private type hid_device_infos is Pointer
 private type hid_device is Pointer
 
 private variable mDevices as optional hid_device_infos
-private variable mSelectedDevice as optional hid_device
+private variable mHIDDevicesArray as Array
+private variable mSelectedDevice as optional Pointer
 private variable mInited as Boolean
 
 __safe foreign handler hid_init() returns CInt binds to "c:libhidapi>hid_init"
@@ -73,15 +74,20 @@ __safe foreign handler hid_exit() returns CInt binds to "c:libhidapi>hid_exit"
 __safe foreign handler hid_version_str() returns Pointer binds to "c:libhidapi>hid_version_str"
 __safe foreign handler hid_enumerate(in pVendorID as CUShort, in pProductID as CUShort) returns Pointer binds to "c:libhidapi>hid_enumerate"
 __safe foreign handler hid_free_enumeration(in mDevices as Pointer) returns nothing binds to "c:libhidapi>hid_free_enumeration"
-__safe foreign handler hid_open(in pVendorID as CUShort, in pProductID as CUShort, in pSerial as optional ZStringUTF16) returns optional hid_device binds to "c:libhidapi>hid_open"
-
-__safe foreign handler hid_open_path(in pSysPath as ZStringNative) returns optional hid_device binds to "c:libhidapi>hid_open_path"
+__safe foreign handler hid_open(in pVendorID as CUShort, in pProductID as CUShort, in pSerial as optional ZStringUTF16) returns optional Pointer binds to "c:libhidapi>hid_open"
+__safe foreign handler hid_open_path(in pSysPath as ZStringNative) returns Pointer binds to "c:libhidapi>hid_open_path"
+__safe foreign handler hid_close(in pSelectedDevice as Pointer) returns nothing binds to "c:libhidapi>hid_close"
+--hid_close(hid_device *dev
+__safe foreign handler hid_read_timeout(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer, in pMillsecs as CUInt ) returns CSInt binds to "c:libhidapi>hid_read_timeout"
 -- hid_device * HID_API_CALL hid_open_path(const char *path);
+-- hid_read_timeout(hid_device *dev, unsigned char *data, size_t length, int milliseconds);
+-- 		HID_API_EXPORT const wchar_t* HID_API_CALL hid_error(hid_device *dev);
 
 public handler HIDAPIInit() returns optional any
    variable tStrPtr as Pointer
    variable tString as String
    variable tResult as CInt
+   variable tBool as CBool
    put hid_init() into tResult -- 0 on success and -1 on error.
    if tResult is 0 then
       put hid_version_str() into tStrPtr
@@ -90,6 +96,7 @@ public handler HIDAPIInit() returns optional any
          put true into mInited
       end if
    end if
+   put MCMemoryAllocate(64, rBufferPtr) into tBool
 end handler
 
 -- struct hid_device_info {
@@ -120,12 +127,42 @@ end handler
 --			struct hid_device_info *next; r=Pointer  };
 --
 public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
+public foreign type HIDDevice binds to "MCAggregateTypeInfo:rddrdrrddH" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
+public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
 __safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+__safe foreign handler PointerToHIDDevice(out rAggregate as HIDDevice, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+__safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+
+variable rIncomingData as optional HIDByteBuffer
+variable rBufferPtr as optional Pointer
+
+public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative) returns optional any
+   -- variable rIncomingData as Data
+   variable rBytesRead as Integer
+   variable tResult as Boolean
+   -- put nothing into rIncomingData
+   -- put the byte with code 0 into rIncomingData
+   -- put MCDataGetBytePtr(rIncomingData) into rBufferPtr
+   put nothing into mSelectedDevice
+   put hid_open_path(pSysPath) into mSelectedDevice
+   if mSelectedDevice is nothing then
+      log "could not open path"
+   else
+      put hid_read_timeout(mSelectedDevice,rBufferPtr,1000) into rBytesRead
+      PointerBufferToData(rIncomingData,rBufferPtr,64)
+      log [rBytesRead,rBufferPtr,rIncomingData]
+      hid_close(mSelectedDevice)
+   end if
+   -- put nothing into rBufferPtr
+   -- put MCMemoryDeallocate(rBufferPtr) into tResult
+   -- put MCMemoryReallocate(rBufferPtr,64,rBufferPtr) into tResult
+end handler
 
 public handler HIDAPIEnumerate() returns optional any
 
    variable tStrPtr as Pointer
    variable tString as String
+   variable tSysPath as String
    variable tZStringUTF16 as ZStringUTF16
    variable tZStringNative as ZStringNative
    variable tVenderID as CUShort
@@ -135,20 +172,25 @@ public handler HIDAPIEnumerate() returns optional any
    variable rNextHIDDevice as HIDDevices
    variable tDevice as optional Pointer
 
+   put the empty array into mHIDDevicesArray
    -- variable tString as String
-   put hid_enumerate(0,0) into mDevices
+   put hid_enumerate(0,0) into mDevices -- pass 0,0 (VendorID,DeviceID) to get all connected HID devices
    PointerToHIDDevices(rHIDDevices,mDevices, 1024)
    put element 1 of rHIDDevices into tStrPtr
-   if MCStringCreateWithCString(tStrPtr, tString) then
-      log ["PATH=" && tString]
+   if MCStringCreateWithCString(tStrPtr, tSysPath) then
+      log ["PATH=" && tSysPath]
+      put the empty array into mHIDDevicesArray[tSysPath]
       -- return tString
    end if
+
    put element 2 of rHIDDevices into tVenderID
    put getHexStringFromTwoByteNum(tVenderID) into tString
    log ["Vendor=" & tString ]
    put element 3 of rHIDDevices into tProductID
    put getHexStringFromTwoByteNum(tProductID) into tString
    log ["Product=" & tString ]
+   put {"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
+
    -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
    -- log ["Vendor=", element 2 of rHIDDevices ]
    -- log ["Product=", element 3 of rHIDDevices ]
@@ -177,17 +219,19 @@ public handler HIDAPIEnumerate() returns optional any
       PointerToHIDDevices(rNextHIDDevice, tDevice, 1024)
 
       put element 1 of rNextHIDDevice into tStrPtr
-      if MCStringCreateWithCString(tStrPtr, tString) then
-         log ["PATH=" && tString]
+      if MCStringCreateWithCString(tStrPtr, tSysPath) then
+         log ["PATH=" && tSysPath]
+         put the empty array into mHIDDevicesArray[tSysPath]
          -- return tString
       end if
-
       put element 2 of rNextHIDDevice into tVenderID
       put getHexStringFromTwoByteNum(tVenderID) into tString
       log ["Vendor=" & tString ]
       put element 3 of rNextHIDDevice into tProductID
       put getHexStringFromTwoByteNum(tProductID) into tString
       log ["Product=" & tString ]
+      put {"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
+
       -- put element 2 of rHIDDevices converted from base 10 to base 16 into tAny
       -- log ["Vendor=", element 2 of rNextHIDDevice ]
       -- log ["Product=", element 3 of rNextHIDDevice ]
@@ -216,6 +260,7 @@ public handler HIDAPIEnumerate() returns optional any
       end if
    end repeat
    hid_free_enumeration(mDevices)
+   log mHIDDevicesArray
 end handler
 
 public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns optional String
