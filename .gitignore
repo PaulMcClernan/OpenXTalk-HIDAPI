@@ -13,3 +13,8 @@ TOOLS & INFO/hidapi/0.10.0/include/hidapi/._hidapi.h
 TOOLS & INFO/._hidapitester
 TOOLS & INFO/hidapitester-0.2/._hidapitester.c
 TOOLS & INFO/._hidapitester
+module.2.lcm
+TOOLS & INFO/hidapi/0.10.0/bin/._hidtest
+TOOLS & INFO/hidapitester-0.2/hid_generic_trinketm0/._descriptors.h
+module.2.lcm
+community.livecode.paulmcclernan.hidapi.lci

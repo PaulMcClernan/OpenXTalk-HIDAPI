@@ -47,7 +47,7 @@ __safe foreign handler MCStringEncode(in pString as String, in pEncoding as CUIn
 __safe foreign handler MCStringDecode(in pData as Data, in pEncoding as CUInt, in pIsExternalRep as CBool, out rUTF8String as String) returns CBool binds to "<builtin>"
 -- bool MCStringDecode(MCDataRef data, MCStringEncoding encoding, bool is_external_rep, MCStringRef& r_string);
 __safe foreign handler MCStringCreateWithCString(in pCString as Pointer, out rString as String) returns CBool binds to "<builtin>"
-__safe foreign handler MCStringCreateWithWString(in pWString as Pointer, out rString as String) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithWString(in pWString as Pointer, out rString as ZStringUTF16) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringCreateWithSysString(in pWString as Pointer, out rString as ZStringNative) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
 --foreign handler MCDataConvertStringToData(in pString as String, out rData as Data) returns CBool binds to "<builtin>"
@@ -95,7 +95,7 @@ public handler HIDAPIInit() returns optional any
          put true into mInited
       end if
    end if
-   put MCMemoryAllocate(64, rBufferPtr) into tBool
+   put MCMemoryAllocate(1024, rBufferPtr) into tBool
 end handler
 
 -- struct hid_device_info {
@@ -127,7 +127,7 @@ end handler
 
 public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
 public foreign type HIDDevice binds to "MCAggregateTypeInfo:rddrdrrddH" -- Declaration (numPackets: UInt32, *packet(MIDIPacket)) -- j = UInt32
-public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
+public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
 __safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 __safe foreign handler PointerToHIDDevice(out rAggregate as HIDDevice, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 __safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
@@ -172,6 +172,9 @@ public handler HIDAPIEnumerate() returns optional any
    variable rHIDDevices as HIDDevices
    variable rNextHIDDevice as HIDDevices
    variable tDevice as optional Pointer
+   variable tStatus as Boolean
+   variable tNum as Number
+   variable rData as optional HIDByteBuffer
 
    put the empty array into mHIDDevicesArray
    put hid_enumerate(0,0) into mDevices -- pass 0,0 (VendorID,DeviceID) to get all connected HID devices
@@ -190,12 +193,16 @@ public handler HIDAPIEnumerate() returns optional any
    put {"SystemPath":tSysPath,"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
    put element 6 of rHIDDevices into tStrPtr
       if MCStringCreateWithBytes(tStrPtr,64,kMCStringEncodingUTF8,false,tString) then
-      put "Manufacturer=" & tString & "\t" after rReturnString
+      put "Manufacturer=" & char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString
    end if
    put element 7 of rHIDDevices into tStrPtr
    if MCStringCreateWithBytes(tStrPtr,64,kMCStringEncodingUTF8,false,tString) then
-      put "Product=" & tString & "\t" after rReturnString
+      put "Product=" & char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString
    end if
+   put element 8 of rHIDDevices formatted as string into tString
+   put "UsagePage=" & tString & "\t" after rReturnString
+   put element 9 of rHIDDevices formatted as string into tString
+   put "Usage=" & tString & "\t" after rReturnString
    put nothing into tDevice
    put element 11 of rHIDDevices into tDevice
    repeat forever
@@ -218,14 +225,36 @@ public handler HIDAPIEnumerate() returns optional any
       put "ProductID=" & tString & "\t" after rReturnString
       put {"SystemPath":tSysPath,"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
       put element 6 of rNextHIDDevice into tStrPtr
-      -- if MCStringCreateWithWString(tStrPtr, tZStringUTF16) then
+      --put MCStringCreateWithWString(tStrPtr,tZStringUTF16) into tStatus
+      -- log tZStringUTF16
       if MCStringCreateWithBytes(tStrPtr,64,kMCStringEncodingUTF8,false,tString) then
-         put "Manufacturer=" & tString & "\t" after rReturnString
+         PointerBufferToData(rData,tStrPtr,64)
+         repeat with tNum from 1 up to 60
+            if element tNum of rData is 0 and element tNum+1 of rData is 0 and element tNum+2 of rData is 0 and element tNum+3 of rData is 0 then -- find *wchar_t null termination?
+               log ["length="& tNum formatted as string]
+               log char 1 to tNum of tString
+               put "Manufacturer=" & char 1 to tNum of tString & "\t" after rReturnString
+               exit repeat
+            end if
+         end repeat
       end if
       put element 7 of rNextHIDDevice into tStrPtr
       if MCStringCreateWithBytes(tStrPtr,64,kMCStringEncodingUTF8,false,tString) then -- kMCStringEncodingUTF16
-         put "Product=" & tString & "\t" after rReturnString
+         PointerBufferToData(rData,tStrPtr,128)
+         repeat with tNum from 1 up to 124
+            if element tNum of rData is 0 and element tNum+1 of rData is 0 and element tNum+2 of rData is 0 and element tNum+3 of rData is 0 then -- find *wchar_t null termination?
+               log ["length="& tNum formatted as string]
+               log char 1 to tNum of tString
+               put "Product=" & char 1 to tNum of tString & "\t" after rReturnString
+               exit repeat
+            end if
+         end repeat
       end if
+      put element 8 of rNextHIDDevice formatted as string into tString
+      put "UsagePage=" & tString & "\t" after rReturnString
+      put element 9 of rNextHIDDevice formatted as string into tString
+      put "Usage=" & tString & "\t" after rReturnString
+
       put nothing into tDevice
       put element 11 of rNextHIDDevice into tDevice
       -- log ["Next Dev Pointer=", tDevice]
@@ -237,6 +266,18 @@ public handler HIDAPIEnumerate() returns optional any
    end repeat
    hid_free_enumeration(mDevices)
    return rReturnString
+end handler
+
+public handler getWCharStringSizeOf(in pPointer as Pointer) returns optional Number
+   variable rData as HIDByteBuffer
+   variable tNum as Number
+   PointerBufferToData(rData,pPointer,128)
+   repeat with tNum from 1 up to 124
+      if element tNum of rData is 0 and element tNum+1 of rData is 0 and element tNum+2 of rData is 0 and element tNum+3 of rData is 0 then -- find *wchar_t null termination?
+         return tNum
+         exit repeat
+      end if
+   end repeat
 end handler
 
 public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns optional String
