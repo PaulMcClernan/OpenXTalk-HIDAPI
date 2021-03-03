@@ -1,6 +1,6 @@
 library community.livecode.paulmcclernan.hidapi
 
-metadata version is "0.1"
+metadata version is "0.2"
 metadata author is "Paul McClernan"
 metadata title is "LC HID API"
 
