@@ -7,14 +7,13 @@ import module community.livecode.paulmcclernan.hidapi
   use com.livecode.logic
   use com.livecode.string
   use com.livecode.type
-  use com.livecode.array
   use com.livecode.char
+  use com.livecode.array
   use com.livecode.math
   handler HIDAPIInit() returns optional any
   foreign type HIDDevices
-  foreign type HIDDevice
   foreign type HIDByteBuffer
-  handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative) returns optional any
+  handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative, in pWaitMillisecs as optional Number) returns optional any
   handler HIDAPIEnumerate() returns optional any
   handler getWCharStringSizeOf(in pPointer as Pointer) returns optional Number
   handler getHexStringFromTwoByteNum(in pTwoByteNum as Number) returns optional String
