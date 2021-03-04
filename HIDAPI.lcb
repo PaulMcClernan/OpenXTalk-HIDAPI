@@ -186,7 +186,7 @@ public handler HIDAPIEnumerate() returns optional any
       put "\t" after rReturnString
    end if
    put "" into tString
-   put element 8 of rHIDDevices formatted as string into tString
+   put HIDUsagePageNumToString(element 8 of rHIDDevices) into tString
    put tString & "\t" after rReturnString
    put "" into tString
    put element 9 of rHIDDevices formatted as string into tString
@@ -222,19 +222,19 @@ public handler HIDAPIEnumerate() returns optional any
       -- put {"SystemPath":tSysPath,"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
       put element 6 of rNextHIDDevice into tStrPtr
       --put MCStringCreateWithWString(tStrPtr,tZStringUTF16) into tStatus -- Doesn't work as expected
-      if MCStringCreateWithBytes(tStrPtr,128,kMCStringEncodingUTF8,false,tString) then
+      if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then
          put char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString -- "Manufacturer"
       else
           put "\t" after rReturnString
       end if
       put element 7 of rNextHIDDevice into tStrPtr
-      if MCStringCreateWithBytes(tStrPtr,128,kMCStringEncodingUTF8,false,tString) then -- kMCStringEncodingUTF16
+      if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then -- kMCStringEncodingUTF16
          put char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString -- "Product"
       else
           put "\t" after rReturnString
       end if
       put "" into tString
-      put element 8 of rNextHIDDevice formatted as string into tString
+      put HIDUsagePageNumToString(element 8 of rNextHIDDevice) into tString
       put tString & "\t" after rReturnString -- "UsagePage"
       put "" into tString
       put element 9 of rNextHIDDevice formatted as string into tString
@@ -278,6 +278,66 @@ public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns opt
       end repeat
    end if
    return tBinsStr
+end handler
+
+public handler HIDUsagePageNumToString(in pUsagePageNumber as Number) returns String
+   if pUsagePageNumber < 21 then
+      variable tUsagePageList as List
+      put ["0 Undefined","1 Generic_Desktop","2 Simulation","3 VR","4 Sport","5 Game","6 Generic_Controls","7 Keyboard_Keypad","8 LEDs","9 Button","10 Ordinal","11 Telephony","12 Consumer","13 Digitizer_TouchScreen","14 Haptics","15 Physical Force Device","16 Unicode","17 Reserved","18 Eye_Head_Trackers","19 Reserved","20 Aux_Display"] into tUsagePageList
+      return element (pUsagePageNumber +1) of tUsagePageList
+   else
+      --kHIDPage_PID is 15	/* force feedback and related devices. */
+      if pUsagePageNumber > 20 and pUsagePageNumber < 32 then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber = 32 then
+         return "32 Sensors"
+      end if
+      if pUsagePageNumber > 32 and pUsagePageNumber < 64 then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber = 64 then
+         return "32 Medical_Instrument"
+      end if
+      if pUsagePageNumber = 65 then
+         return "65 Braille_Display"
+      end if
+      if pUsagePageNumber > 65 and pUsagePageNumber < 89 then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber = 89 then
+         return "89 Lighting"
+      end if
+      if pUsagePageNumber > 89 and pUsagePageNumber < 128 then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber > 127 and pUsagePageNumber < 132 then
+         return pUsagePageNumber formatted as string && "Monitor"
+      end if
+      if pUsagePageNumber = 132 or pUsagePageNumber = 134 or pUsagePageNumber = 135 then
+         return pUsagePageNumber formatted as string && "Power_Device"
+      end if
+      if pUsagePageNumber = 133 then
+         return "133 Battery_System"
+      end if
+      if pUsagePageNumber > 135 and pUsagePageNumber < 140 then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber > 139 and pUsagePageNumber < 147 then
+         variable tUsagePageList as List
+         put ["140 Barcode_Scanner","141 Weighing_Device","142 Magnetic_Strip_Reader","143 Point_of_Sale Reserved","144 Camera_Control","145 OAAF_Arcade_CoinOp","146 GSA_Gaming"] into tUsagePageList
+         return element (pUsagePageNumber - 139) of tUsagePageList
+      end if
+      if pUsagePageNumber = 61904 then
+         return "61904 FIDO_Alliance" -- FIDO = Fast ID Online
+      end if
+      if (pUsagePageNumber > 146 and pUsagePageNumber < 61904) or (pUsagePageNumber > 61904 and pUsagePageNumber < 65280) then
+         return pUsagePageNumber formatted as string && "Reserved"
+      end if
+      if pUsagePageNumber > 65279 then
+         return pUsagePageNumber formatted as string && "Vendor_Defined"
+      end if
+   end if
 end handler
 
 end library
