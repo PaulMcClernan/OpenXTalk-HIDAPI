@@ -53,11 +53,17 @@ __safe foreign handler MCWidgetGetMyScriptObject(out rObject as ScriptObject) re
 
 private type hid_device_infos is Pointer
 private type hid_device is Pointer
+public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr"
+public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
+__safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+__safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
 
 private variable mDevices as optional hid_device_infos
 private variable mHIDDevicesArray as Array
 private variable mSelectedDevice as optional Pointer
 private variable mInited as Boolean
+variable rIncomingData as optional HIDByteBuffer
+variable rBufferPtr as optional Pointer
 
 __safe foreign handler hid_init() returns CInt binds to "c:libhidapi>hid_init"
 __safe foreign handler hid_exit() returns CInt binds to "c:libhidapi>hid_exit"
@@ -68,7 +74,8 @@ __safe foreign handler hid_open(in pVendorID as CUShort, in pProductID as CUShor
 __safe foreign handler hid_open_path(in pSysPath as ZStringNative) returns Pointer binds to "c:libhidapi>hid_open_path"
 __safe foreign handler hid_close(in pSelectedDevice as Pointer) returns nothing binds to "c:libhidapi>hid_close"
 __safe foreign handler hid_read_timeout(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize, in pMillsecs as CUInt ) returns CSInt binds to "c:libhidapi>hid_read_timeout"
-__safe foreign handler hid_read(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_read_timeout"
+__safe foreign handler hid_read(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_read"
+__safe foreign handler hid_set_nonblocking(in pSelectedDevice as Pointer, in pBlocking as CUInt) returns CSInt binds to "c:libhidapi>hid_set_nonblocking"
 __safe foreign handler hid_error(in pSelectedDevice as Pointer) returns Pointer binds to "c:libhidapi>hid_error"
 -- 		HID_API_EXPORT const wchar_t* HID_API_CALL hid_error(hid_device *dev);
 
@@ -86,16 +93,99 @@ public handler HIDAPIInit() returns optional any
          -- log ["HID API VERSION:" && tString]
          return "HID API VERSION:" && tString
       end if
+   else
+      return "error initializing HID API" && tString
+   end if
+end handler
+public handler HIDAPIExit() returns optional any
+   variable tResult as CSInt
+   if mInited then
+      if mSelectedDevice is not nothing then
+         hid_close(mSelectedDevice)
+         put nothing into mSelectedDevice
+      end if
+      put hid_exit() into tResult -- 0 on success and -1 on error.
+      if tResult is -1 then
+         return "error exiting HID API"
+      else
+         MCMemoryDeallocate(rBufferPtr)
+         put nothing into rBufferPtr
+         put nothing into rIncomingData
+         put false into mInited
+         return "HID API exited"
+      end if
+   else
+      return "HID API was not initialized"
    end if
 end handler
 
-public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr"
-public foreign type HIDByteBuffer binds to "MCAggregateTypeInfo:hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
-__safe foreign handler PointerToHIDDevices(out rAggregate as HIDDevices, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
-__safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "c:memcpy"
+public handler HIDAPISetBlockingMode(in pBlocking as Boolean) returns optional any
+   --  hid_set_nonblocking(hid_device *dev, int 1 to enable nonblocking or 0 to disable nonblocking.) returns 0 on success and -1 on error.
+   if mSelectedDevice is not nothing then
+      if pBlocking then -- blocking set to true
+         if hid_set_nonblocking(mSelectedDevice,0) is not -1 then
+            return
+         else
+            return "error setting blocking mode"
+         end if
+      else -- blocking set to false
+         if hid_set_nonblocking(mSelectedDevice,1) is not -1 then
+            return
+         else
+            return "error setting blocking mode"
+         end if
+      end if
+   end if
+end handler
+public handler HIDAPIOpenFromSystemPath(in pSysPath as ZStringNative) returns optional any
+   -- variable tPointerAsNum as UIntSize
+   if mSelectedDevice is nothing then
+      put hid_open_path(pSysPath) into mSelectedDevice
+      if mSelectedDevice is nothing then
+         return "error opening path to device"
+      else
+         return "device access opened" -- mSelectedDevice
+      end if
+   end if
+end handler
 
-variable rIncomingData as optional HIDByteBuffer
-variable rBufferPtr as optional Pointer
+public handler HIDAPIClose() returns optional any
+   if mSelectedDevice is not nothing then
+      hid_close(mSelectedDevice)
+      put nothing into mSelectedDevice
+   else
+
+   end if
+end handler
+
+public handler HIDAPIRead() returns optional any
+   if mSelectedDevice is not nothing then
+      variable rBytesRead as Integer
+      variable tByteCounter as Integer
+      variable tWCharStrPtr as Pointer
+      variable tString as String
+      variable tReturnString as String
+      variable tResult as Boolean
+      put nothing into rIncomingData
+      if mSelectedDevice is nothing then
+         return "error opening path to device"
+      else
+         put hid_read(mSelectedDevice,rBufferPtr,64) into rBytesRead
+         if rBytesRead is -1 then
+            return "error reading from device" -- && tReturnString
+         else
+            PointerBufferToData(rIncomingData,rBufferPtr,64)
+            -- log [rBytesRead,rBufferPtr,rIncomingData]
+            repeat with tByteCounter from 1 up to rBytesRead
+               put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
+            end repeat
+            return tReturnString
+         end if
+      end if
+   else
+      return "error no open device to read from"
+   end if
+ end handler
 
 public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative, in pWaitMillisecs as optional Number) returns optional any
    variable rBytesRead as Integer
