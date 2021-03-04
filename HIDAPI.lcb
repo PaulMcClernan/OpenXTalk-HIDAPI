@@ -112,17 +112,16 @@ public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative, in 
    end if
    put hid_open_path(pSysPath) into mSelectedDevice
    if mSelectedDevice is nothing then
-      return "could not open path to device"
+      return "error opening path to device"
    else
       put hid_read_timeout(mSelectedDevice,rBufferPtr,64,pWaitMillisecs) into rBytesRead
       if rBytesRead is -1 then
          -- put hid_error(mSelectedDevice) into tWCharStrPtr -- disabled because the only error message is "hid_error not implemented yet"
          -- if MCStringCreateWithBytes(tWCharStrPtr,256,kMCStringEncodingUTF8,false,tString) then
-         --   put char 1 to (getWCharStringSizeOf(tWCharStrPtr)) of tString into tReturnString
+         --    put char 1 to (getWCharStringSizeOf(tWCharStrPtr)) of tString into tReturnString
          -- end if
          hid_close(mSelectedDevice)
-         -- return tReturnString
-         return "error reading from device"
+         return "error reading from device" -- && tReturnString
       else
          hid_close(mSelectedDevice)
          PointerBufferToData(rIncomingData,rBufferPtr,64)
@@ -175,7 +174,7 @@ public handler HIDAPIEnumerate() returns optional any
    -- put {"SystemPath":tSysPath,"VendorID":tVenderID,"ProductID":tProductID} into mHIDDevicesArray[tSysPath]
    put element 6 of rHIDDevices into tStrPtr
    if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then
-      put  char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString
+      put char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString
    else
        put "\t" after rReturnString
    end if
@@ -189,7 +188,11 @@ public handler HIDAPIEnumerate() returns optional any
    put HIDUsagePageNumToString(element 8 of rHIDDevices) into tString
    put tString & "\t" after rReturnString
    put "" into tString
-   put element 9 of rHIDDevices formatted as string into tString
+   if element 8 of rHIDDevices = 1 then
+      put HIDGenericDesktopUsageNumToString(element 9 of rHIDDevices) into tString
+   else
+      put element 9 of rHIDDevices formatted as string into tString
+   end if
    put tString & "\t" after rReturnString
    put "" into tString
 
@@ -237,7 +240,11 @@ public handler HIDAPIEnumerate() returns optional any
       put HIDUsagePageNumToString(element 8 of rNextHIDDevice) into tString
       put tString & "\t" after rReturnString -- "UsagePage"
       put "" into tString
-      put element 9 of rNextHIDDevice formatted as string into tString
+      if element 8 of rNextHIDDevice = 1 then
+         put HIDGenericDesktopUsageNumToString(element 9 of rNextHIDDevice) into tString
+      else
+         put element 9 of rNextHIDDevice formatted as string into tString
+      end if
       put tString & "\t" after rReturnString -- "Usage"
       put "" into tString
 
@@ -278,6 +285,15 @@ public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns opt
       end repeat
    end if
    return tBinsStr
+end handler
+
+public handler HIDGenericDesktopUsageNumToString(in pUsagePageNumber as Number) returns String
+   if pUsagePageNumber < 19 then
+      variable tUsagePageList as List
+      put ["0 Undefined","1 Pointer","2 Mouse","3 Reserved","4 Joystick","5 Gamepad","6 Keyboard","7 Keypad","8 Multi-axis_Control","9 Tablet_Control","10 Water_Cooling","11 Chassis_Device","12 Radio_Controls","13 Portable_Device","14 System_Multi-axis","15 Spatial_Control","16 Assistive_Control","17 Device_Dock","18 Dockable_Device"] into tUsagePageList
+      return element (pUsagePageNumber +1) of tUsagePageList
+   end if
+   return pUsagePageNumber formatted as string
 end handler
 
 public handler HIDUsagePageNumToString(in pUsagePageNumber as Number) returns String
