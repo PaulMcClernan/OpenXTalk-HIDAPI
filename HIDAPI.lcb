@@ -33,10 +33,8 @@ constant kMCStringEncodingUTF32BE is 8 -- The UTF-32 string encoding in big endi
 constant kMCStringEncodingUTF16 is 9
 constant kMCStringEncodingUTF32 is 10
 
--- MCStringEncode(*t_copy, kMCStringEncodingUTF16, false, t_encoded_paths)
 __safe foreign handler MCStringEncode(in pString as String, in pEncoding as CUInt, in pIsExternalRep as CBool, out rUTF8String as Data) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringDecode(in pData as Data, in pEncoding as CUInt, in pIsExternalRep as CBool, out rUTF8String as String) returns CBool binds to "<builtin>"
--- bool MCStringDecode(MCDataRef data, MCStringEncoding encoding, bool is_external_rep, MCStringRef& r_string);
 __safe foreign handler MCStringCreateWithCString(in pCString as Pointer, out rString as String) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringCreateWithWString(in pWString as Pointer, out rString as ZStringUTF16) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringCreateWithSysString(in pWString as Pointer, out rString as ZStringNative) returns CBool binds to "<builtin>"
@@ -79,7 +77,18 @@ __safe foreign handler hid_read_timeout(in pSelectedDevice as Pointer, in rDataB
 __safe foreign handler hid_read(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_read"
 __safe foreign handler hid_set_nonblocking(in pSelectedDevice as Pointer, in pBlocking as CUInt) returns CSInt binds to "c:libhidapi>hid_set_nonblocking"
 __safe foreign handler hid_error(in pSelectedDevice as Pointer) returns Pointer binds to "c:libhidapi>hid_error"
--- 		HID_API_EXPORT const wchar_t* HID_API_CALL hid_error(hid_device *dev);
+__safe foreign handler hid_get_feature_report(in pSelectedDevice as Pointer, inout rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_get_feature_report"
+-- Get a feature report from a HID device. Set the first byte of rIncomingData to the Report ID of the report to be read.
+-- Make sure to allow space for this extra byte in rIncomingData. Upon return, the first byte will still contain the Report ID,
+-- and the report data will start at rIncomingData[2]. Returns the number of bytes read+1 (for the reportID) or -1 on error.
+-- This function (supposedly) sets the return value of hid_error()
+-- https://eleccelerator.com/usbdescreqparser/# -- parse report?
+-- int HID_API_EXPORT HID_API_CALL hid_send_feature_report(hid_device *dev, const unsigned char *data, size_t length);
+__safe foreign handler hid_send_feature_report(in pSelectedDevice as Pointer, inout rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_send_feature_report"
+__safe foreign handler hid_get_input_report(in pSelectedDevice as Pointer, inout rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_get_input_report"
+-- input reports read-only
+
+-- int HID_API_EXPORT HID_API_CALL hid_get_input_report(hid_device *dev, unsigned char *data, size_t length);
 
 public handler HIDAPIInit() returns optional any
    variable tStrPtr as Pointer
