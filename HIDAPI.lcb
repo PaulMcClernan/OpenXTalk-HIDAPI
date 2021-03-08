@@ -467,7 +467,7 @@ public handler HIDAPIEnumerate() returns optional any
       -- put nothing into tDevice
       put element 11 of rNextHIDDevice into tDevice
 
-      log ["Next Dev Pointer=", tDevice, "Current Pointer =", tLastDevice, (tDevice is tLastDevice)]
+      log ["Next Dev Pointer=", tDevice, "Current Pointer =", tLastDevice]
 
       if tCounter > 16 then
          exit repeat
