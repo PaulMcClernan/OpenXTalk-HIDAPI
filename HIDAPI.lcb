@@ -48,6 +48,8 @@ __safe foreign handler MCMemoryReallocate(in rBlockPtr as Pointer, in pSize as U
 __safe foreign handler MCMemoryDeallocate(in rBlockPtr as Pointer) returns nothing binds to "<builtin>"
 __safe foreign handler MCWidgetGetMyScriptObject(out rObject as ScriptObject) returns nothing binds to "<builtin>"
 -- MCDataGetLength(t_data);
+__safe foreign handler MCValueIsEqualTo(in rPtrA as Pointer, in pPtrB as Pointer) returns CBool binds to "<builtin>"
+-- bool MCValueIsEqualTo(MCValueRef value, MCValueRef other_value);
 
 private type hid_device is Pointer
 public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr"
@@ -331,15 +333,17 @@ public handler HIDAPIEnumerate() returns optional any
       put "\t" after rReturnString
    end if
    -- log [mDevices,rHIDDevices]
-
+   put "" into tString
    put element 2 of rHIDDevices into tVenderID
    put getHexStringFromTwoByteNum(tVenderID) into tString
    put tString & "\t" after rReturnString
+
+   put "" into tString
    put element 3 of rHIDDevices into tProductID
    put getHexStringFromTwoByteNum(tProductID) into tString
    put tString & "\t" after rReturnString
    -- put {"SystemPath":tSysPath,"VendorID":tVenderID,"ProductID":tProductID}, "SerialNum":tSerialNum} into mHIDDevicesArray[tSysPath]
-
+   put "" into tString
    if element 4 of rHIDDevices is not nothing then
       put element 4 of rHIDDevices into tStrPtr
       --put MCStringCreateWithWString(tStrPtr,tZStringUTF16) into tStatus -- Doesn't work as expected
@@ -349,20 +353,24 @@ public handler HIDAPIEnumerate() returns optional any
    else
       put "no serial number \t" after rReturnString
    end if
-
+   put "" into tString
    put element 5 of rHIDDevices into tProductID
    put getHexStringFromTwoByteNum(tProductID) into tString
    put tString & "\t" after rReturnString
 
+   put "" into tString
    if element 6 of rHIDDevices is not nothing then
       put element 6 of rHIDDevices into tStrPtr
       if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then
          put char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString
+      else
+         put "\t" after rReturnString
       end if
    else
        put "\t" after rReturnString
    end if
 
+   put "" into tString
    if element 7 of rHIDDevices is not nothing then
       put element 7 of rHIDDevices into tStrPtr
       if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then
@@ -382,16 +390,17 @@ public handler HIDAPIEnumerate() returns optional any
       put element 9 of rHIDDevices formatted as string into tString
    end if
    put tString & "\t" after rReturnString
+
    put "" into tString
    log [element 10 of rHIDDevices]
 
    put nothing into tDevice
    put element 11 of rHIDDevices into tDevice
-    if tDevice is nothing then
+   if tDevice is nothing then
       hid_free_enumeration(mDevices)
       return rReturnString
    end if
-   put mDevices into tLastDevice
+   -- put mDevices into tLastDevice
    put 1 into tCounter
    repeat forever
       if tDevice is nothing then
@@ -401,28 +410,33 @@ public handler HIDAPIEnumerate() returns optional any
          -- log ["Next Dev Pointer=", tDevice]
       end if
       if the operating system is "windows" then
-         win_PointerToHIDDevices(rNextHIDDevice,mDevices, 1024)
+         win_PointerToHIDDevices(rNextHIDDevice,tDevice, 1024)
       else
-         PointerToHIDDevices(rNextHIDDevice,mDevices, 1024)
+         PointerToHIDDevices(rNextHIDDevice,tDevice, 1024)
       end if
       put element 1 of rNextHIDDevice into tStrPtr
       if MCStringCreateWithCString(tStrPtr, tSysPath) then
          put tSysPath & "\t" after rReturnString
          -- put the empty array into mHIDDevicesArray[tSysPath]
       end if
+      put "" into tString
       put element 2 of rNextHIDDevice into tVenderID
       put getHexStringFromTwoByteNum(tVenderID) into tString
       put tString & "\t" after rReturnString -- "VendorID"
 
+      put "" into tString
       put element 3 of rNextHIDDevice into tProductID
       put getHexStringFromTwoByteNum(tProductID) into tString
       put tString & "\t" after rReturnString -- "ProductID=""
 
+      put "" into tString
       if element 4 of rNextHIDDevice is not nothing then
          put element 4 of rNextHIDDevice into tStrPtr
          --put MCStringCreateWithWString(tStrPtr,tZStringUTF16) into tStatus -- Doesn't work as expected
          if MCStringCreateWithBytes(tStrPtr,256,kMCStringEncodingUTF8,false,tString) then
             put char 1 to (getWCharStringSizeOf(tStrPtr)) of tString & "\t" after rReturnString -- "serial number"
+         else
+            put "no serial number \t" after rReturnString
          end if
       else
          put "no serial number \t" after rReturnString
@@ -463,21 +477,23 @@ public handler HIDAPIEnumerate() returns optional any
       put tString & "\t" after rReturnString -- "Usage"
       put "" into tString
       log [element 10 of rNextHIDDevice]
+
       put tDevice into tLastDevice
-      -- put nothing into tDevice
       put element 11 of rNextHIDDevice into tDevice
-
-      log ["Next Dev Pointer=", tDevice, "Current Pointer =", tLastDevice]
-
-      if tCounter > 16 then
-         exit repeat
-      else
-         add 1 to tCounter
-      end if
       if (tDevice is nothing) then
          exit repeat
       else
-         next repeat
+         -- if MCValueIsEqualTo(tLastDevice, tDevice) then
+         --   if tCounter <2 then
+         --      log ["Next Dev Pointer=", tDevice, "Current Pointer =", element 11 of rNextHIDDevice]
+         --      exit repeat
+         --    end if
+         -- end if
+         if tCounter > 127 then -- catch for infinite loop
+            exit repeat
+         else
+            add 1 to tCounter
+         end if
       end if
    end repeat
    hid_free_enumeration(mDevices)
