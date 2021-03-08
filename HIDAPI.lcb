@@ -266,7 +266,7 @@ end handler
 --       /** Serial Number */
 --       wchar_t *serial_number; r=Pointer            element 4
 
-/** Device Release Number in binary-coded decimal, also known as Device Version Number */
+         /** Device Release Number in binary-coded decimal, also known as Device Version Number */
 --			/** Device Release Number in binary-coded decimal, also known as Device Version Number */
 --			unsigned short release_number; -- d=CUShort  element 5
 
@@ -291,8 +291,8 @@ end handler
 --			/** Pointer to the next device */
 --			struct hid_device_info *next; r=Pointer  element 11  };
 
--- public foreign type HIDDevices binds to "MCAggregateTypeInfo: 1=r 2=d 3=d 4=r 5=d 6=r 7=r 8=d 9=d 10=H 11=r"
--- rddrdrrddHr
+-- public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" --  1=r 2=d 3=d 4=r 5=d 6=r 7=r 8=d 9=d 10=H 11=r
+--
 
 public handler HIDAPIEnumerate() returns optional any
    variable rReturnString as String
@@ -466,7 +466,9 @@ public handler HIDAPIEnumerate() returns optional any
       put tDevice into tLastDevice
       -- put nothing into tDevice
       put element 11 of rNextHIDDevice into tDevice
-      log ["Next Dev Pointer=", tDevice]
+
+      log ["Next Dev Pointer=", tDevice, "Current Pointer =", tLastDevice, (tDevice is tLastDevice)]
+
       if tCounter > 16 then
          exit repeat
       else
