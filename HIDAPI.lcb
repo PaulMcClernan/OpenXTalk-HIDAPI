@@ -180,7 +180,7 @@ public handler HIDAPIClose() returns optional any
    end if
 end handler
 
-public handler HIDAPIRead() returns optional any
+public handler HIDAPIRead(in pParse as optional String) returns optional any
    if mSelectedDevice is not nothing then
       variable rBytesRead as Integer
       variable tByteCounter as Integer
@@ -202,9 +202,20 @@ public handler HIDAPIRead() returns optional any
                PointerBufferToData(rIncomingData,rBufferPtr,64)
             end if
             -- log [rBytesRead,rBufferPtr,rIncomingData]
-            repeat with tByteCounter from 1 up to rBytesRead
-               put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
-            end repeat
+
+            if pParse is "hex" or pParse is "hexadecimal" then
+               repeat with tByteCounter from 1 up to rBytesRead
+                  put getHexStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+               end repeat
+            else if pParse is "bits" then
+               repeat with tByteCounter from 1 up to rBytesRead
+                  put getBitsStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+               end repeat
+            else
+               repeat with tByteCounter from 1 up to rBytesRead
+                  put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
+               end repeat
+            end if
             return tReturnString
          end if
       end if
@@ -531,10 +542,32 @@ end handler
 
 public handler getHexStringFromTwoByteNum( in pTwoByteNum as Number) returns optional String
    variable tNum as Number
+   variable tHexStr as String
+   put pTwoByteNum converted to base 16 into tHexStr
+   if (the number of chars in tHexStr) < 4 then
+      put 4 - (the number of chars in tHexStr) into tNum
+      repeat tNum times
+         put "0" before tHexStr
+      end repeat
+   end if
+   return tHexStr
+end handler
+
+public handler getHexStringFromCUInt( in pByte as CUInt ) returns optional String
+   variable tHexStr as String
+   put pByte converted to base 16 into tHexStr
+   if (the number of chars in tHexStr) < 2 then
+      put "0" before tHexStr
+   end if
+   return tHexStr
+end handler
+
+public handler getBitsStringFromCUInt( in pByte as CUInt ) returns optional String
+   variable tNum as Number
    variable tBinsStr as String
-   put pTwoByteNum converted to base 16 into tBinsStr
-   if (the number of chars in tBinsStr) < 4 then
-      put 4 - (the number of chars in tBinsStr) into tNum
+   put pByte converted to base 2 into tBinsStr
+   if (the number of chars in tBinsStr) < 8 then
+      put 8 - (the number of chars in tBinsStr) into tNum
       repeat tNum times
          put "0" before tBinsStr
       end repeat
