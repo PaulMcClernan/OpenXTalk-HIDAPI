@@ -1,6 +1,6 @@
 library community.livecode.paulmcclernan.hidapi
 
-metadata version is "0.2"
+metadata version is "0.3"
 metadata author is "Paul McClernan"
 metadata title is "LC HID API"
 
@@ -38,10 +38,10 @@ __safe foreign handler MCStringDecode(in pData as Data, in pEncoding as CUInt, i
 __safe foreign handler MCStringCreateWithCString(in pCString as Pointer, out rString as String) returns CBool binds to "<builtin>"
 __safe foreign handler MCStringCreateWithWString(in pWString as Pointer, out rString as String) returns CBool binds to "<builtin>"
 -- return MCStringCreateWithWString(t_native_path.Ptr(), r_native_path);
-__safe foreign handler MCStringCreateUnicodeWithChars(in pUString as Pointer, out rString as ZStringUTF16) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateUnicodeWithChars(in pUString as Pointer, out rString as String) returns CBool binds to "<builtin>"
 -- bool MCStringCreateUnicodeWithChars(const unichar_t *chars, uindex_t char_count, MCStringRef& r_string);
-__safe foreign handler MCStringCreateWithSysString(in pWString as Pointer, out rString as ZStringNative) returns CBool binds to "<builtin>"
-__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as String) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithSysString(in pWString as Pointer, out rString as String) returns CBool binds to "<builtin>"
+__safe foreign handler MCStringCreateWithBytes(in pBytes as Pointer, in pByteCount as LCUInt, in pEncoding as CUInt, in pIsExternalRep as CBool, out rString as optional String) returns CBool binds to "<builtin>"
 --foreign handler MCDataConvertStringToData(in pString as String, out rData as Data) returns CBool binds to "<builtin>"
 
 __safe foreign handler MCDataGetBytePtr(in pData as Data) returns optional Pointer binds to "<builtin>"
@@ -63,7 +63,7 @@ __safe foreign handler PointerBufferToData(out rData as HIDByteBuffer, in pPoint
 __safe foreign handler win_PointerBufferToData(out rData as HIDByteBuffer, in pPointer as Pointer, in pSize as UIntSize) returns nothing binds to "msvcrt>memcpy"
 
 private variable mDevices as optional Pointer
-private variable mHIDDevicesArray as Array
+-- private variable mHIDDevicesArray as Array
 private variable mSelectedDevice as optional Pointer
 private variable mInited as Boolean
 variable rIncomingData as optional HIDByteBuffer
@@ -247,9 +247,6 @@ public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative, in 
       put hid_read_timeout(mSelectedDevice,rBufferPtr,64,pWaitMillisecs) into rBytesRead
       if rBytesRead is -1 then
          -- put hid_error(mSelectedDevice) into tWCharStrPtr -- disabled because the only error message is "hid_error not implemented yet"
-         -- if MCStringCreateWithBytes(tWCharStrPtr,256,kMCStringEncodingUTF8,false,tString) then
-         --    put char 1 to (getWCharStringSizeOf(tWCharStrPtr)) of tString into tReturnString
-         -- end if
          hid_close(mSelectedDevice)
          return "error reading from device" -- && tReturnString
       else
@@ -309,20 +306,19 @@ end handler
 
 -- public foreign type HIDDevices binds to "MCAggregateTypeInfo:rddrdrrddHr" --  1=r 2=d 3=d 4=r 5=d 6=r 7=r 8=d 9=d 10=H 11=r
 --
+private variable rHIDDevices as HIDDevices
+private variable rNextHIDDevice as HIDDevices
+variable tDevice as optional Pointer
 
 public handler HIDAPIEnumerate() returns optional any
    variable rReturnString as String
    variable tStrPtr as optional Pointer
-   variable tString as String
+   variable tString as optional String
    variable tSysPath as String
    variable tZStringUTF16 as ZStringUTF16
    variable tVenderID as CUShort
    variable tProductID as CUShort
    variable tSerialNum as CUShort
-
-   variable rHIDDevices as HIDDevices
-   variable rNextHIDDevice as HIDDevices
-   variable tDevice as optional Pointer
    variable tLastDevice as optional Pointer
 
    variable tStatus as Boolean
@@ -330,7 +326,7 @@ public handler HIDAPIEnumerate() returns optional any
    variable tCounter as Number
 
    put nothing into mDevices
-   put the empty array into mHIDDevicesArray
+   -- put the empty array into mHIDDevicesArray
    -- put "DEVICE PATH\t"&"VendorID(hex)\t"&"ProductID(hex)\t"&"Manufacturer\t"&"Product\t"&"UsagePage\t"&"Usage\n" into rReturnString
    put the empty string into rReturnString
    put hid_enumerate(0,0) into mDevices -- pass 0,0 (VendorID,DeviceID) to get all connected HID devices
@@ -338,9 +334,9 @@ public handler HIDAPIEnumerate() returns optional any
       return "error empty HID device list"
    end if
    if the operating system is "windows" then
-      win_PointerToHIDDevices(rHIDDevices,mDevices, 2048)
+      win_PointerToHIDDevices(rHIDDevices,mDevices,2048)
    else
-      PointerToHIDDevices(rHIDDevices,mDevices, 2048)
+      PointerToHIDDevices(rHIDDevices,mDevices,2048)
    end if
    put element 1 of rHIDDevices into tStrPtr
    if MCStringCreateWithCString(tStrPtr, tSysPath) then
@@ -364,10 +360,16 @@ public handler HIDAPIEnumerate() returns optional any
    put "" into tString
    if element 4 of rHIDDevices is not nothing then
       put element 4 of rHIDDevices into tStrPtr
-      put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-      put tZStringUTF16 after rReturnString
+      if the operating system is "windows" then
+         if MCStringCreateWithWString(tStrPtr,tString) then
+            put tString & "\t" into tString
+         end if
+      else
+         put getWCharString(tStrPtr) & "\t" into tString
+      end if
+      put tString after rReturnString
    else
-      put "no serial number \t" after rReturnString
+      put "no serial number\t" after rReturnString
    end if
 
    put "" into tString
@@ -378,8 +380,14 @@ public handler HIDAPIEnumerate() returns optional any
    put "" into tString
    if element 6 of rHIDDevices is not nothing then
       put element 6 of rHIDDevices into tStrPtr
-      put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-      put tZStringUTF16 after rReturnString
+      if the operating system is "windows" then
+         if MCStringCreateWithWString(tStrPtr,tString) then
+            put tString & "\t" into tString
+         end if
+      else
+         put getWCharString(tStrPtr) & "\t" into tString
+      end if
+      put tString after rReturnString
    else
        put "\t" after rReturnString
    end if
@@ -387,10 +395,16 @@ public handler HIDAPIEnumerate() returns optional any
    put "" into tString
    if element 7 of rHIDDevices is not nothing then
       put element 7 of rHIDDevices into tStrPtr
-      put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-      put tZStringUTF16 after rReturnString
+      if the operating system is "windows" then
+         if MCStringCreateWithWString(tStrPtr,tString) then
+            put tString & "\t" into tString
+         end if
+      else
+         put getWCharString(tStrPtr) & "\t" into tString
+      end if
+      put tString after rReturnString
    else
-      put "\t" after rReturnString
+       put "\t" after rReturnString
    end if
 
    put "" into tString
@@ -456,8 +470,14 @@ public handler HIDAPIEnumerate() returns optional any
       put "" into tString
       if element 4 of rNextHIDDevice is not nothing then
          put element 4 of rNextHIDDevice into tStrPtr
-         put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-         put tZStringUTF16 after rReturnString
+         if the operating system is "windows" then
+            if MCStringCreateWithWString(tStrPtr,tString) then
+               put tString & "\t" into tString
+            end if
+         else
+            put getWCharString(tStrPtr) & "\t" into tString
+         end if
+         put tString after rReturnString
       else
          put "no serial number\t" after rReturnString
       end if
@@ -468,16 +488,28 @@ public handler HIDAPIEnumerate() returns optional any
 
       if element 6 of rNextHIDDevice is not nothing then
          put element 6 of rNextHIDDevice into tStrPtr
-         put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-         put tZStringUTF16 after rReturnString
+         if the operating system is "windows" then
+            if MCStringCreateWithWString(tStrPtr,tString) then
+               put tString & "\t" into tString
+            end if
+         else
+            put getWCharString(tStrPtr) & "\t" into tString
+         end if
+         put tString after rReturnString
       else
           put "\t" after rReturnString
       end if
 
       if element 7 of rNextHIDDevice is not nothing then
          put element 7 of rNextHIDDevice into tStrPtr
-         put getWCharString(tStrPtr) & "\t" into tZStringUTF16
-         put tZStringUTF16 after rReturnString
+         if the operating system is "windows" then
+            if MCStringCreateWithWString(tStrPtr,tString) then
+               put tString & "\t" into tString
+            end if
+         else
+            put getWCharString(tStrPtr) & "\t" into tString
+         end if
+         put tString after rReturnString
       else
           put "\t" after rReturnString
       end if
@@ -499,10 +531,8 @@ public handler HIDAPIEnumerate() returns optional any
          put element 9 of rNextHIDDevice formatted as string into tString
       end if
       put tString & "\t" after rReturnString -- "Usage"
-
       -- log [element 10 of rNextHIDDevice] -- interface_number
       put element 10 of rNextHIDDevice formatted as string after rReturnString
-
       put tDevice into tLastDevice
       put element 11 of rNextHIDDevice into tDevice
       if (tDevice is nothing) then
@@ -540,36 +570,34 @@ public handler getWCharString(in pPointer as Pointer) returns String
    --   log tString -- tString
    --   return ""
    -- end if
-
    put "" into tString
    if the operating system is "windows" then
       win_PointerBufferToData(rData,pPointer,256)
    else
       PointerBufferToData(rData,pPointer,256)
    end if
-   if element 1 of rData is 0 and element 2 of rData is 0 then
-      return tString
-   end if
+   -- if element 1 of rData is 0 and element 2 of rData is 0 then
+   --    return tString
+   -- end if
    repeat with tNum from 1 up to 252
-      if element tNum of rData = 10 or element tNum of rData = 13 or element tNum of rData = 13 then  -- is ascii CR / LF / tab
-         return tString
-         exit repeat
-      end if
-
-      if the operating system is "widows" then
-         if element tNum of rData is 0 and element tNum+1 of rData is 0 then  -- find *wchar_t null termination? -- and element tNum+3 of rData is 0
-            return tString
-            exit repeat
-         end if
-
-      else --- is mac or linux
+      -- if the operating system is "widows" then
+         -- if element tNum of rData is 0 and element tNum+1 of rData is 0 and element tNum+2 of rData is 0 then  -- find *wchar_t null termination? -- and element tNum+3 of rData is 0
+         --   return tString
+         --   exit repeat
+         -- end if
+      -- else --- is mac or linux
          if element tNum of rData is 0 and element tNum+1 of rData is 0 and element tNum+2 of rData is 0 and element tNum+3 of rData is 0 then  -- find *wchar_t null termination? -- and element tNum+3 of rData is 0
             return tString
             exit repeat
          end if
-      end if
+      -- end if
       if element tNum of rData > 31 and element tNum of rData < 256 then  -- above ASCII char range
           put (the char with code (element tNum of rData)) after tString
+          next repeat
+      end if
+      if element tNum of rData = 10 or element tNum of rData = 13 or element tNum of rData = 13 then  -- is ascii CR / LF / tab
+         return tString
+         exit repeat
       end if
    end repeat
    return tString
