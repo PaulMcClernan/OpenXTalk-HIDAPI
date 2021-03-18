@@ -45,3 +45,21 @@ TOOLS & INFO/._USB in a NutShell - Chapter 5 - USB Descriptors.webloc
 TOOLS & INFO/._[usb_ddrpad] Port uinput_ddrpad to hidapi+muhid, results in OS X support · Orochimarufan-HIDRAW@764a….webloc
 TOOLS & INFO/._Using C and the HIDAPI library  with ADU USB Data Acquisition Products (Linux & OS X).webloc
 *.lce
+TOOLS & INFO/._HID_Calibrator Source.zip
+TOOLS & INFO/HID_Calibrator.app/Contents/Info.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/MacOS/HID_Calibrator
+TOOLS & INFO/HID_Calibrator.app/Contents/PkgInfo
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/Application.icns
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/._HID_cookie_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/._HID_device_usage_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/._HID_usage_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/Credits.rtf
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/HID_cookie_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/HID_device_usage_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/HID_usage_strings.plist
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/InfoPlist.strings
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/IOHIDDeviceWindow.nib
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/IOHIDElementCollectionView.nib
+TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/MainMenu.nib
+TOOLS & INFO/mac-hid-dump-main/._mac-hid-dump.c
+support/._defaultscript.livecodescript
