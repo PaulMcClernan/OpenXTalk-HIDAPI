@@ -122,6 +122,7 @@ public handler HIDAPIInit() returns optional any
       return "error initializing HID API" && tString
    end if
 end handler
+
 public handler HIDAPIExit() returns optional any
    variable tResult as CSInt
    if mInited then
@@ -178,95 +179,92 @@ public handler HIDAPIClose() returns optional any
    if mSelectedDevice is not nothing then
       hid_close(mSelectedDevice)
       put nothing into mSelectedDevice
+      return true
    else
-
+      return false
    end if
 end handler
 
-public handler HIDAPIRead(in pParse as optional String) returns optional any
+public handler HIDAPIReadWithTimeOut(in pParse as optional String, in pWaitMillisecs as Integer) returns optional any
    if mSelectedDevice is not nothing then
       variable rBytesRead as Integer
       variable tByteCounter as Integer
-      variable tWCharStrPtr as Pointer
-      variable tString as String
       variable tReturnString as String
       variable tResult as Boolean
       put nothing into rIncomingData
-      if mSelectedDevice is nothing then
-         return "error opening path to device"
-      else
-         put hid_read(mSelectedDevice,rBufferPtr,64) into rBytesRead
-         if rBytesRead is -1 then
-            return "error reading from device" -- && tReturnString
-         else
-            if the operating system is "windows" then
-               win_PointerBufferToData(rIncomingData,rBufferPtr,64)
-            else
-               PointerBufferToData(rIncomingData,rBufferPtr,64)
-            end if
-            -- log [rBytesRead,rBufferPtr,rIncomingData]
-
-            if pParse is "hex" or pParse is "hexadecimal" then
-               repeat with tByteCounter from 1 up to rBytesRead
-                  put getHexStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
-               end repeat
-            else if pParse is "bits" then
-               repeat with tByteCounter from 1 up to rBytesRead
-                  put getBitsStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
-               end repeat
-            else
-               repeat with tByteCounter from 1 up to rBytesRead
-                  put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
-               end repeat
-            end if
-            return tReturnString
-         end if
+      if pWaitMillisecs is nothing then
+         put 0 into pWaitMillisecs
       end if
-   else
-      return "error no open device to read from"
-   end if
- end handler
-
-public handler HIDAPIOpenAndReadFromSystemPath(in pSysPath as ZStringNative, in pWaitMillisecs as optional Number) returns optional any
-   variable rBytesRead as Integer
-   variable tByteCounter as Integer
-   variable tWCharStrPtr as Pointer
-   variable tString as String
-
-   variable tReturnString as String
-   variable tResult as Boolean
-   put nothing into rIncomingData
-   put nothing into mSelectedDevice
-   if pWaitMillisecs is nothing then
-      put 5000 into pWaitMillisecs -- USB compliant Host expects all requests to be processed within a maximum period of 5 seconds
-   end if
-   put hid_open_path(pSysPath) into mSelectedDevice
-   if mSelectedDevice is nothing then
-      return "error opening path to device"
-   else
       put hid_read_timeout(mSelectedDevice,rBufferPtr,64,pWaitMillisecs) into rBytesRead
+      -- put hid_read(mSelectedDevice,rBufferPtr,64) into rBytesRead
       if rBytesRead is -1 then
-         -- put hid_error(mSelectedDevice) into tWCharStrPtr -- disabled because the only error message is "hid_error not implemented yet"
-         hid_close(mSelectedDevice)
          return "error reading from device" -- && tReturnString
       else
-         hid_close(mSelectedDevice)
          if the operating system is "windows" then
             win_PointerBufferToData(rIncomingData,rBufferPtr,64)
          else
             PointerBufferToData(rIncomingData,rBufferPtr,64)
          end if
          -- log [rBytesRead,rBufferPtr,rIncomingData]
-         repeat with tByteCounter from 1 up to rBytesRead
-            put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
-         end repeat
+
+         if pParse is "hex" or pParse is "hexadecimal" then
+            repeat with tByteCounter from 1 up to rBytesRead
+               put getHexStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+            end repeat
+         else if pParse is "bits" then
+            repeat with tByteCounter from 1 up to rBytesRead
+               put getBitsStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+            end repeat
+         else
+            repeat with tByteCounter from 1 up to rBytesRead
+               put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
+            end repeat
+         end if
          return tReturnString
       end if
+   else
+      return "error no open device to read from"
    end if
-   -- put nothing into rBufferPtr
-   -- put MCMemoryDeallocate(rBufferPtr) into tResult
-   -- put MCMemoryReallocate(rBufferPtr,64,rBufferPtr) into tResult
-end handler
+ end handler
+
+public handler HIDAPIRead(in pParse as optional String) returns optional any
+   if mSelectedDevice is not nothing then
+      variable rBytesRead as Integer
+      variable tByteCounter as Integer
+      variable tReturnString as String
+      variable tResult as Boolean
+      put nothing into rIncomingData
+      -- put hid_read_timeout(mSelectedDevice,rBufferPtr,64,pWaitMillisecs) into rBytesRead
+      put hid_read(mSelectedDevice,rBufferPtr,64) into rBytesRead
+      if rBytesRead is -1 then
+         return "error reading from device" -- && tReturnString
+      else
+         if the operating system is "windows" then
+            win_PointerBufferToData(rIncomingData,rBufferPtr,64)
+         else
+            PointerBufferToData(rIncomingData,rBufferPtr,64)
+         end if
+         -- log [rBytesRead,rBufferPtr,rIncomingData]
+
+         if pParse is "hex" or pParse is "hexadecimal" then
+            repeat with tByteCounter from 1 up to rBytesRead
+               put getHexStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+            end repeat
+         else if pParse is "bits" then
+            repeat with tByteCounter from 1 up to rBytesRead
+               put getBitsStringFromCUInt(rIncomingData[tByteCounter]) &" " after tReturnString
+            end repeat
+         else
+            repeat with tByteCounter from 1 up to rBytesRead
+               put rIncomingData[tByteCounter] formatted as string &" " after tReturnString
+            end repeat
+         end if
+         return tReturnString
+      end if
+   else
+      return "error no open device to read from"
+   end if
+ end handler
 
 -- struct hid_device_info {
 --			/** Platform-specific device path */ rddrdrrddHr

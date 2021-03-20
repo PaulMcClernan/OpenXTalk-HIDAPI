@@ -63,3 +63,8 @@ TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/IOHIDElementCollecti
 TOOLS & INFO/HID_Calibrator.app/Contents/Resources/en.lproj/MainMenu.nib
 TOOLS & INFO/mac-hid-dump-main/._mac-hid-dump.c
 support/._defaultscript.livecodescript
+TOOLS & INFO/._IOHIDDeviceScheduleWithRunLoop | Apple Developer Documentation.webloc
+code/._x86_64-linux
+code/x86_64-linux/._.DS_Store
+code/x86_64-linux/._libhidapi.so
+code/x86_64-linux/.DS_Store
