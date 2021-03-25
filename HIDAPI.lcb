@@ -145,6 +145,37 @@ public handler HIDAPIExit() returns optional any
    end if
 end handler
 
+variable mFilters as List
+public handler HIDAPISetInputFilter(in pFilterText as String) returns optional any
+   variable tByteFilters as List
+   variable tFilter as List
+   variable tElement
+   variable tByteDescriptorCount as Number
+   put 1 into tByteDescriptorCount
+   put the empty list into mFilters
+   replace "\n" with "" in pFilterText -- tString is "turtle"
+   split pFilterText by " " into tByteFilters
+   repeat for each element tElement in tByteFilters
+		if tElement is a string then
+         if tElement is not "" and tElement is not " " then
+            split tElement by "=" into tFilter
+            if the number of elements in tFilter = 1 then
+               push tFilter[1] onto back of mFilters
+            else
+               push [ tFilter[1], tFilter[2] ] onto back of mFilters
+            end if
+         else if tElement is not " " then
+            next repeat
+         else
+            exit repeat
+         end if
+		end if
+      add 1 to tByteDescriptorCount
+	end repeat
+ log tByteDescriptorCount - 1
+ log mFilters
+end handler
+
 public handler HIDAPISetBlockingMode(in pBlocking as Boolean) returns optional any
    --  hid_set_nonblocking(hid_device *dev, int 1 to enable nonblocking or 0 to disable nonblocking.) returns 0 on success and -1 on error.
    if mSelectedDevice is not nothing then
