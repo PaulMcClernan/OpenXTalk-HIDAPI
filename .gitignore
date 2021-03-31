@@ -76,3 +76,5 @@ code/x86_64-linux/.DS_Store
 ._PlayStationStyleGamePad.psd
 ._HIDAPI Tester2.livecode
 ._XY_KNOB.livecode
+._api.lcdoc
+._hidapi.h

@@ -88,9 +88,8 @@ __safe foreign handler hid_get_feature_report(in pSelectedDevice as Pointer, ino
 -- and the report data will start at rIncomingData[2]. Returns the number of bytes read+1 (for the reportID) or -1 on error.
 -- This function (supposedly) sets the return value of hid_error()
 -- https://eleccelerator.com/usbdescreqparser/# -- parse report?
--- int HID_API_EXPORT HID_API_CALL hid_send_feature_report(hid_device *dev, const unsigned char *data, size_t length);
-__safe foreign handler hid_send_feature_report(in pSelectedDevice as Pointer, inout rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_send_feature_report"
-__safe foreign handler hid_get_input_report(in pSelectedDevice as Pointer, inout rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_get_input_report"
+__safe foreign handler hid_send_feature_report(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_send_feature_report"
+__safe foreign handler hid_get_input_report(in pSelectedDevice as Pointer, in rDataBufPtr as Pointer,in pBytesToRead as UIntSize) returns CSInt binds to "c:libhidapi>hid_get_input_report"
 -- input reports read-only
 
 -- @param dev device handle returned from hid_open(), @param string_index The index of the string to get.
@@ -200,6 +199,31 @@ public handler HIDAPIOpenFromSystemPath(in pSysPath as ZStringNative) returns op
       put hid_open_path(pSysPath) into mSelectedDevice
       if mSelectedDevice is nothing then
          return "error opening path to device"
+      else
+         return "device access opened" -- mSelectedDevice
+      end if
+   end if
+end handler
+
+public handler HIDAPIOpen(in pVendorIDHex as String, in pProductIDIDHex as String, in pSerialNumStr as optional ZStringUTF16) returns optional any
+   variable tVendorID
+   variable tProductID
+   if pVendorIDHex is not the empty string then
+        put ( pVendorIDHex converted from base 16 to base 10 ) parsed as number into tVendorID
+        log tVendorID
+        --log [tVendorID is a number]
+   end if
+   if pProductIDIDHex is not the empty string then
+        put ( pProductIDIDHex converted from base 16 to base 10 ) parsed as number into tProductID
+        log tProductID
+   end if
+   if pSerialNumStr is not the empty string and pSerialNumStr is not nothing then
+        log pSerialNumStr
+   end if
+   if mSelectedDevice is nothing then
+      put hid_open(tVendorID,tProductID,pSerialNumStr) into mSelectedDevice
+      if mSelectedDevice is nothing then
+         return "error opening device, check VendorID, ProductID and Serial Number"
       else
          return "device access opened" -- mSelectedDevice
       end if
