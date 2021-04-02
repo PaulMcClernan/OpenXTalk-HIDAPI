@@ -166,7 +166,7 @@ public handler HIDAPISetInputFilter(in pFilterText as String) returns optional a
    --       Bytes(N?)=highResPosition:Signed (or Unsigned) -- arbitrary bytes length? posts back to engine in the format: on highResPosition pNByteValue
 
    variable tByteFilters as List
-   variable tFilter as Lists
+   variable tFilter as List
    variable tElement
    variable tByteDescriptorCount as Number
    put 1 into tByteDescriptorCount
