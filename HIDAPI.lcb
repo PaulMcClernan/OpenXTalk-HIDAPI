@@ -146,8 +146,27 @@ end handler
 
 variable mFilters as List
 public handler HIDAPISetInputFilter(in pFilterText as String) returns optional any
+   -- filtertypes (ideas):
+   -- - Basic formatting types:
+   --       Ignore (or X to discard Bit or Byte)
+   --       Integer (or Int),
+   --       SignedInteger (or SInt),
+   --       Double ? Long?  -- Not Sure if these are needed? Maybe just use a bytes(N)= formatting?
+   --       Hexadecimal (or Hex), Raw (or Char? for Raw Byte or ANSII char),
+   --       Possibly add Multi-Byte values ?
+   --       Endianess ??? -- Per official USB HID Usage Tables v1.2 All values are transmitted with little-endian byte alignment
+   --                        and in packed structures unless otherwise stated in the Usage description.
+   --                        Descriptor values stored in multiple bytes must follow the “little endian” style of formatting, where the least significant byte is stored first.
+   --                        For example, a value of 300 or 0x012C, would be stored as 0x2C01.
+   -- - Parseing Formats:
+   --       Bifs(N?)=Button8,Button7,ButtonN,Nyble(DPad:Hex),Crumb(ThreePosSwitch:Int):Integer,Ignore  --- 1-bytes (8 Bits) worth or possibly allow arbitrary length
+   --          a bitfeild could include a mix of Bits, Nybles (4bit values), and Crumbs(2Bit Values(), and Ignored bits
+   --          Single Bits would post Back to the eggine in the fornat: on ButtonN pParamOnOrOff, Nybles format: on DPad pValue -- likewise Crumb format: on ThreePosSwitch pValue
+   --       AxisXY=LeftStick:SignedInteger,SignedInteger -- 2 bytes posts back to engine in the format: on LeftStick pParamX,ParamY
+   --       Bytes(N?)=highResPosition:Signed (or Unsigned) -- arbitrary bytes length? posts back to engine in the format: on highResPosition pNByteValue
+
    variable tByteFilters as List
-   variable tFilter as List
+   variable tFilter as Lists
    variable tElement
    variable tByteDescriptorCount as Number
    put 1 into tByteDescriptorCount
