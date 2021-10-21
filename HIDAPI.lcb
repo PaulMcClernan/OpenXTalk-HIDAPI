@@ -1,4 +1,4 @@
-library community.livecode.paulmcclernan.hidapi
+library org.oxt.paulmcclernan.hidapi
 
 metadata version is "0.3"
 metadata author is "Paul McClernan"
