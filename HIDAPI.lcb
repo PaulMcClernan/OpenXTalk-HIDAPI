@@ -1,8 +1,8 @@
-library org.openxtalk.paulmcclernan.hidapi
+library org.openxtalk.library.hidapi
 
 metadata version is "0.3"
 metadata author is "Paul McClernan"
-metadata title is "LC HID API"
+metadata title is "OpenXTalk HID API"
 
 use com.livecode.foreign
 use com.livecode.canvas
