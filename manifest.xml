@@ -1,0 +1,39 @@
+<package version="0.0">
+  <name>org.openxtalk.library.hidapi</name>
+  <title>OpenXTalk HID API</title>
+  <author>Paul McClernan</author>
+  <version>0.4</version>
+  <license>community</license>
+  <type>library</type>
+  <requires name="com.livecode.foreign"/>
+  <requires name="com.livecode.engine"/>
+  <requires name="com.livecode.arithmetic"/>
+  <requires name="com.livecode.binary"/>
+  <requires name="com.livecode.list"/>
+  <requires name="com.livecode.logic"/>
+  <requires name="com.livecode.string"/>
+  <requires name="com.livecode.type"/>
+  <requires name="com.livecode.typeconvert"/>
+  <requires name="com.livecode.array"/>
+  <requires name="com.livecode.canvas"/>
+  <requires name="com.livecode.math"/>
+  <requires name="com.livecode.system"/>
+  <requires name="com.livecode.char"/>
+  <handler name="HIDAPIInit" parameters="" return="optional any"/>
+  <handler name="HIDAPIExit" parameters="" return="optional any"/>
+  <handler name="HIDAPISetInputFilter" parameters="in string" return="optional any"/>
+  <handler name="HIDAPISetBlockingMode" parameters="in boolean" return="optional any"/>
+  <handler name="HIDAPIOpenFromSystemPath" parameters="in ZStringNative" return="optional any"/>
+  <handler name="HIDAPIOpen" parameters="in string,in string,in optional ZStringUTF16" return="optional any"/>
+  <handler name="HIDAPIClose" parameters="" return="optional any"/>
+  <handler name="HIDAPIReadWithTimeOut" parameters="in optional string,in integer" return="optional any"/>
+  <handler name="HIDAPIRead" parameters="in optional string" return="optional any"/>
+  <handler name="HIDAPIEnumerate" parameters="" return="optional any"/>
+  <handler name="getWCharString" parameters="in Pointer" return="string"/>
+  <handler name="getWCharStringSizeOf" parameters="in Pointer" return="optional number"/>
+  <handler name="getHexStringFromTwoByteNum" parameters="in number" return="optional string"/>
+  <handler name="getHexStringFromCUInt" parameters="in CUInt" return="optional string"/>
+  <handler name="getBitsStringFromCUInt" parameters="in CUInt" return="optional string"/>
+  <handler name="HIDGenericDesktopUsageNumToString" parameters="in number" return="string"/>
+  <handler name="HIDUsagePageNumToString" parameters="in number" return="string"/>
+</package>

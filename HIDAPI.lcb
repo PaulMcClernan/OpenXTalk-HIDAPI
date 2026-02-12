@@ -1,6 +1,6 @@
 library org.openxtalk.library.hidapi
 
-metadata version is "0.3"
+metadata version is "0.4"
 metadata author is "Paul McClernan"
 metadata title is "OpenXTalk HID API"
 
@@ -25,7 +25,7 @@ constant kMCStringEncodingASCII is 0 -- The (7-bit) ASCII encoding.
 constant	kMCStringEncodingWindows1252 is 1 -- The standard Windows (Latin-1) encoding.
 constant	kMCStringEncodingMacRoman is 2 -- The standard Mac (Latin-1) encoding.
 constant kMCStringEncodingISO8859_1 is 3 -- The standard Linux (Latin-1) encoding.
-constant kMCStringEncodingUTF8 is 4 -- The UTF-8 string encoding.  In LiveCode, this permits overlong sequences when decoding, but does not generate them when encoding.
+constant kMCStringEncodingUTF8 is 4 -- The UTF-8 string encoding. This permits overlong sequences when decoding but does not generate them when encoding.
 constant	kMCStringEncodingUTF16LE is 5 -- The UTF-16 string encoding in little endian byte-order.
 constant kMCStringEncodingUTF16BE is 6 -- The UTF-16 string encoding in big endian byte-order.
 constant kMCStringEncodingUTF32LE is 7 -- The UTF-32 string encoding in little endian byte-order.

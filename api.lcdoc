@@ -1,0 +1,20 @@
+Library: 
+
+Type: 
+
+version: 0.4
+
+author: Paul McClernan
+
+
+Name: HIDAPIEnumerate
+
+Type: handler
+
+Syntax: HIDAPIEnumerate()
+
+Summary:  Usage Page for this Device/Interface (Windows/Mac only). 
+
+
+
+
